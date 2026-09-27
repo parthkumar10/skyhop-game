@@ -1,24 +1,22 @@
-🎮 SkyHop
+# 🎮 SkyHop
 
-SkyHop is a browser-based game built with React and JavaScript.
+SkyHop is a responsive browser game built with React and JavaScript. Dodge obstacles, collect power-ups, earn medals, and beat your high score.
 
-🚀 Live Demo
+## 🚀 Live Demo
 
-https://skyhopgame.pages.dev
+[Play SkyHop](https://skyhopgame.pages.dev)
 
-✨ Features
+## ✨ Features
 
 - 🎮 Interactive browser gameplay
-- ⚡ Responsive and smooth interface
-- 📱 Designed to work across different screen sizes
-- 🎨 Modern and clean UI
-- 🏆 Score-based gameplay
-- 🔄 Replayable game experience
-- 🛡️ Shield power-up providing one-hit protection
-- 🌅 Progressive environment changes from day to evening to night
+- ⚡ Smooth and responsive interface
+- 📱 Works across desktop, tablet, and mobile screens
+- 🏆 Score-based and replayable gameplay
+- 🛡️ Shield power-up with one-hit protection
+- 🌅 Environment changes from day to evening to night
 - 🥉🥈🥇 Bronze, Silver, and Gold medal achievements
 
-🛠️ Tech Stack
+## 🛠️ Tech Stack
 
 - React
 - JavaScript
@@ -27,7 +25,7 @@ https://skyhopgame.pages.dev
 - Create React App
 - CRACO
 
-📂 Project Structure
+## 📂 Project Structure
 
 ```text
 skyhop-game/
@@ -37,41 +35,55 @@ skyhop-game/
 ├── test_reports/
 ├── memory/
 └── README.md
+```
 
+## 💻 Run Locally
 
-💻 Run Locally
-1. Clone the repository
+1. Clone the repository:
+
+```bash
 git clone https://github.com/parthkumar10/skyhop-game.git
+```
 
-2. Go into the frontend
+2. Go to the frontend folder:
+
+```bash
 cd skyhop-game/frontend
+```
 
-3. Install dependencies
+3. Install dependencies:
+
+```bash
 npm install
+```
 
-4. Start the development server
+4. Start the development server:
+
+```bash
 npm start
+```
 
 The application will run locally at:
+
+```text
 http://localhost:3000
+```
 
+## 🌐 Deployment
 
-🌐 Deployment
 The frontend is deployed using Cloudflare Pages.
-Live website:
-https://skyhopgame.pages.dev
 
+[View the live website](https://skyhopgame.pages.dev)
 
+## 📌 Future Improvements
 
-📌 Future Improvements
 - Add more game modes
 - Add additional levels
 - Improve gameplay mechanics
-- Add leaderboard functionality
-- Improve mobile experience
+- Improve the mobile experience
+- Add a leaderboard
 
+## 👨‍💻 Author
 
-
-👨‍💻 Author
-Parth Kumar
-https://github.com/parthkumar10
+Parth Kumar  
+[GitHub Profile](https://github.com/parthkumar10)
