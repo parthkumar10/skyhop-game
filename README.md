@@ -55,12 +55,16 @@ http://localhost:3000
 The frontend is deployed using Cloudflare Pages.
 Live website:
 https://skyhopgame.pages.dev
+
+
 📌 Future Improvements
 - Add more game modes
 - Add additional levels
 - Improve gameplay mechanics
 - Add leaderboard functionality
 - Improve mobile experience
+
+
 👨‍💻 Author
 Parth Kumar
 GitHub: https://github.com/parthkumar10
