@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from "react";
-import { Volume2, VolumeX } from "lucide-react";
+import { Volume2, VolumeX, Shield } from "lucide-react";
 
 // ---- Tuning constants (vertical = fraction of height, horizontal = fraction of width) ----
 const BIRD_X = 0.28; // frac W
@@ -51,7 +51,88 @@ function createSound() {
       blip(300, 0.18, "sawtooth", 0.16, 90);
       setTimeout(() => blip(140, 0.3, "sawtooth", 0.14, 60), 60);
     },
+    power: () => {
+      blip(700, 0.09, "triangle", 0.12);
+      setTimeout(() => blip(1050, 0.11, "triangle", 0.12), 70);
+      setTimeout(() => blip(1450, 0.12, "triangle", 0.1), 150);
+    },
+    shieldBreak: () => blip(900, 0.14, "square", 0.13, 260),
   };
+}
+
+const THEMES = {
+  day: {
+    sky: ["#8fd3f4", "#a8e0f0", "#d9f4ff"],
+    cloud: "rgba(255,255,255,0.9)",
+    hill: "#bfe89a",
+    ground: "#c9a26b",
+    grass: "#8fd06a",
+    glow: "rgba(255,245,190,0.5)",
+    body: "rgba(255,236,150,0.95)",
+    stars: false,
+    moon: false,
+  },
+  sunset: {
+    sky: ["#ff8b60", "#ffb27a", "#ffe0b0"],
+    cloud: "rgba(255,235,215,0.85)",
+    hill: "#c98f5a",
+    ground: "#7e5236",
+    grass: "#d07a45",
+    glow: "rgba(255,150,90,0.55)",
+    body: "rgba(255,120,70,0.98)",
+    stars: false,
+    moon: false,
+  },
+  night: {
+    sky: ["#0f2027", "#1c3a4a", "#2c5364"],
+    cloud: "rgba(200,210,235,0.28)",
+    hill: "#26413a",
+    ground: "#2a2622",
+    grass: "#35603f",
+    glow: "rgba(220,235,255,0.35)",
+    body: "rgba(238,243,255,0.98)",
+    stars: true,
+    moon: true,
+  },
+};
+
+function themeFor(score) {
+  if (score >= 30) return THEMES.night;
+  if (score >= 15) return THEMES.sunset;
+  return THEMES.day;
+}
+
+function medalFor(score) {
+  if (score >= 30) return { label: "Gold", c1: "#fff0a8", c2: "#f0a500", ring: "#b47800" };
+  if (score >= 15) return { label: "Silver", c1: "#ffffff", c2: "#b8c2cc", ring: "#8a97a3" };
+  if (score >= 5) return { label: "Bronze", c1: "#f6c79c", c2: "#c17a3f", ring: "#8a4f22" };
+  return null;
+}
+
+function drawFeather(ctx, x, y, r, time) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.fillStyle = "rgba(255,225,120,0.30)";
+  ctx.beginPath();
+  ctx.arc(0, 0, r * 1.9, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.rotate(-0.5 + Math.sin(time * 2) * 0.12);
+  const grad = ctx.createLinearGradient(0, -r * 1.5, 0, r * 1.4);
+  grad.addColorStop(0, "#fff6c8");
+  grad.addColorStop(1, "#ffcf4d");
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.moveTo(0, -r * 1.5);
+  ctx.quadraticCurveTo(r * 1.1, -r * 0.2, 0, r * 1.4);
+  ctx.quadraticCurveTo(-r * 1.1, -r * 0.2, 0, -r * 1.5);
+  ctx.fill();
+  ctx.strokeStyle = "#e0982a";
+  ctx.lineWidth = Math.max(1, r * 0.12);
+  ctx.beginPath();
+  ctx.moveTo(0, -r * 1.4);
+  ctx.lineTo(0, r * 1.3);
+  ctx.stroke();
+  ctx.restore();
 }
 
 // circle vs rect collision
@@ -84,18 +165,34 @@ export default function SkyHop() {
     vy: 0, // frac H / s
     rot: 0,
     pipes: [], // {x (frac W), gap (frac H center), scored}
+    feathers: [], // {x, y} floating power-ups
+    shield: false,
+    invuln: 0, // seconds of invulnerability after a shield absorb
+    shieldFlash: -9, // g.time of last shield consume (for the break flash)
     score: 0,
     clouds: [],
+    stars: [],
+    time: 0,
     last: 0,
   });
+  const [shielded, setShielded] = useState(false);
 
   useEffect(() => {
     soundRef.current = createSound();
     const saved = parseInt(localStorage.getItem(HS_KEY) || "0", 10);
     setHighScore(Number.isFinite(saved) ? saved : 0);
     seedClouds();
+    seedStars();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const seedStars = () => {
+    const stars = [];
+    for (let i = 0; i < 60; i++) {
+      stars.push({ x: Math.random(), y: Math.random() * 0.7, r: 0.6 + Math.random() * 1.6, p: Math.random() * Math.PI * 2 });
+    }
+    gRef.current.stars = stars;
+  };
 
   const seedClouds = () => {
     const clouds = [];
@@ -117,6 +214,11 @@ export default function SkyHop() {
     g.rot = 0;
     g.score = 0;
     g.pipes = [{ x: 1.05, gap: randomGap(), scored: false }];
+    g.feathers = [];
+    g.shield = false;
+    g.invuln = 0;
+    g.shieldFlash = -9;
+    setShielded(false);
     setScore(0);
   }, []);
 
@@ -147,6 +249,12 @@ export default function SkyHop() {
     if (!mutedRef.current) soundRef.current && soundRef.current.crash();
   }, []);
 
+  const resumeGame = useCallback(() => {
+    gRef.current.last = 0;
+    phaseRef.current = "playing";
+    setPhase("playing");
+  }, []);
+
   const flap = useCallback(() => {
     const p = phaseRef.current;
     if (p === "playing") {
@@ -154,10 +262,12 @@ export default function SkyHop() {
       if (!mutedRef.current) soundRef.current && soundRef.current.jump();
     } else if (p === "start") {
       startGame();
+    } else if (p === "paused") {
+      resumeGame();
     } else if (p === "over") {
       if (performance.now() - overAtRef.current > 450) startGame();
     }
-  }, [startGame]);
+  }, [startGame, resumeGame]);
 
   // ---------------- Input handlers ----------------
   useEffect(() => {
@@ -170,6 +280,20 @@ export default function SkyHop() {
     window.addEventListener("keydown", onKey, { passive: false });
     return () => window.removeEventListener("keydown", onKey);
   }, [flap]);
+
+  // Auto-pause when the tab loses focus so a run isn't lost
+  useEffect(() => {
+    const onVis = () => {
+      if (document.hidden && phaseRef.current === "playing") {
+        phaseRef.current = "paused";
+        setPhase("paused");
+      }
+    };
+    document.addEventListener("visibilitychange", onVis);
+    return () => {
+      document.removeEventListener("visibilitychange", onVis);
+    };
+  }, []);
 
   const onPointerDown = (e) => {
     // ignore clicks on buttons (they stopPropagation themselves)
@@ -208,22 +332,27 @@ export default function SkyHop() {
       g.last = t;
       if (dt > MAX_DT) dt = MAX_DT; // clamp to avoid jumps
 
+      g.time = t / 1000;
       const playing = phaseRef.current === "playing";
+      const paused = phaseRef.current === "paused";
       const groundY = H * (1 - GROUND);
       const speedMul = Math.min(1.75, 1 + g.score * 0.014);
       const speed = BASE_SPEED * speedMul;
 
-      // update clouds (always)
-      for (const c of g.clouds) {
-        c.x -= c.v * 0.3 * dt;
-        if (c.x < -0.2) {
-          c.x = 1.2;
-          c.y = 0.08 + Math.random() * 0.4;
-          c.s = 0.5 + Math.random() * 0.7;
+      // clouds drift (frozen while paused)
+      if (!paused) {
+        for (const c of g.clouds) {
+          c.x -= c.v * 0.3 * dt;
+          if (c.x < -0.2) {
+            c.x = 1.2;
+            c.y = 0.08 + Math.random() * 0.4;
+            c.s = 0.5 + Math.random() * 0.7;
+          }
         }
       }
 
       if (playing) {
+        if (g.invuln > 0) g.invuln -= dt;
         g.vy += GRAVITY * dt;
         g.by += g.vy * dt;
         // ceiling clamp (touching top does not kill)
@@ -235,25 +364,42 @@ export default function SkyHop() {
 
         // move pipes
         for (const p of g.pipes) p.x -= speed * dt;
-        // remove offscreen
         while (g.pipes.length && g.pipes[0].x < -PIPE_W - 0.05) g.pipes.shift();
         // spawn
         const last = g.pipes[g.pipes.length - 1];
         if (!last || last.x <= 1 - SPACING) {
-          g.pipes.push({
-            x: last ? last.x + SPACING : 1.05,
-            gap: randomGap(),
-            scored: false,
-          });
+          const nx = last ? last.x + SPACING : 1.05;
+          g.pipes.push({ x: nx, gap: randomGap(), scored: false });
+          // rare floating feather in the open air between obstacles
+          if (!g.shield && g.feathers.length === 0 && Math.random() < 0.28) {
+            g.feathers.push({ x: nx - SPACING * 0.5, y: 0.22 + Math.random() * 0.42 });
+          }
         }
 
-        // collision + score
         const cx = BIRD_X * W;
         const cy = g.by * H;
         const r = BIRD_R * H;
         const pw = PIPE_W * W;
         const gapHalf = (GAP / 2) * H;
-        let dead = false;
+
+        // feathers: move, cull, collect
+        for (const f of g.feathers) f.x -= speed * dt;
+        g.feathers = g.feathers.filter((f) => f.x > -0.06);
+        for (const f of g.feathers) {
+          const dx = cx - f.x * W;
+          const dy = cy - f.y * H;
+          const rr = r + r * 0.95;
+          if (dx * dx + dy * dy < rr * rr) {
+            f.collected = true;
+            g.shield = true;
+            setShielded(true);
+            if (!mutedRef.current) soundRef.current && soundRef.current.power();
+          }
+        }
+        g.feathers = g.feathers.filter((f) => !f.collected);
+
+        // pipe collision + score
+        let pipeHit = false;
         for (const p of g.pipes) {
           const px = p.x * W;
           const gcy = p.gap * H;
@@ -263,7 +409,7 @@ export default function SkyHop() {
             hitRect(cx, cy, r, px, 0, pw, topH) ||
             hitRect(cx, cy, r, px, botY, pw, groundY - botY)
           ) {
-            dead = true;
+            pipeHit = true;
           }
           if (!p.scored && cx > px + pw) {
             p.scored = true;
@@ -272,12 +418,23 @@ export default function SkyHop() {
             if (!mutedRef.current) soundRef.current && soundRef.current.score();
           }
         }
-        // floor
-        if (cy + r >= groundY) {
-          g.by = (groundY - r) / H;
-          dead = true;
+        const groundHit = cy + r >= groundY;
+
+        if ((pipeHit || groundHit) && g.invuln <= 0) {
+          if (g.shield) {
+            // absorb one hit, brief invulnerability + bounce
+            g.shield = false;
+            setShielded(false);
+            g.invuln = 0.9;
+            g.shieldFlash = g.time;
+            g.vy = JUMP_V * 0.9;
+            if (groundHit) g.by = (groundY - r) / H - 0.03;
+            if (!mutedRef.current) soundRef.current && soundRef.current.shieldBreak();
+          } else {
+            if (groundHit) g.by = (groundY - r) / H;
+            endGame();
+          }
         }
-        if (dead) endGame();
       }
 
       draw(ctx, W, H, groundY, g);
@@ -294,30 +451,51 @@ export default function SkyHop() {
 
   // ---------------- Rendering ----------------
   const draw = (ctx, W, H, groundY, g) => {
+    const th = themeFor(g.score);
     // sky gradient
     const sky = ctx.createLinearGradient(0, 0, 0, H);
-    sky.addColorStop(0, "#8fd3f4");
-    sky.addColorStop(0.55, "#a8e0f0");
-    sky.addColorStop(1, "#d9f4ff");
+    sky.addColorStop(0, th.sky[0]);
+    sky.addColorStop(0.55, th.sky[1]);
+    sky.addColorStop(1, th.sky[2]);
     ctx.fillStyle = sky;
     ctx.fillRect(0, 0, W, H);
 
-    // sun
-    ctx.fillStyle = "rgba(255, 236, 150, 0.9)";
+    // stars (night)
+    if (th.stars) {
+      for (const s of g.stars) {
+        const tw = 0.5 + 0.5 * Math.sin(g.time * 2 + s.p);
+        ctx.fillStyle = `rgba(255,255,255,${0.3 + tw * 0.6})`;
+        ctx.beginPath();
+        ctx.arc(s.x * W, s.y * H, s.r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    // sun / moon
+    const bx = W * 0.82;
+    const by = H * 0.18;
+    ctx.fillStyle = th.glow;
     ctx.beginPath();
-    ctx.arc(W * 0.82, H * 0.18, H * 0.09, 0, Math.PI * 2);
+    ctx.arc(bx, by, H * 0.13, 0, Math.PI * 2);
     ctx.fill();
-    ctx.fillStyle = "rgba(255, 245, 190, 0.5)";
+    ctx.fillStyle = th.body;
     ctx.beginPath();
-    ctx.arc(W * 0.82, H * 0.18, H * 0.13, 0, Math.PI * 2);
+    ctx.arc(bx, by, H * 0.09, 0, Math.PI * 2);
     ctx.fill();
+    if (th.moon) {
+      // crescent cut using sky colour
+      ctx.fillStyle = th.sky[0];
+      ctx.beginPath();
+      ctx.arc(bx + H * 0.038, by - H * 0.03, H * 0.08, 0, Math.PI * 2);
+      ctx.fill();
+    }
 
     // clouds
-    ctx.fillStyle = "rgba(255,255,255,0.9)";
+    ctx.fillStyle = th.cloud;
     for (const c of g.clouds) drawCloud(ctx, c.x * W, c.y * H, c.s * H * 0.06);
 
     // rolling hills (behind ground)
-    ctx.fillStyle = "#bfe89a";
+    ctx.fillStyle = th.hill;
     ctx.beginPath();
     ctx.moveTo(0, groundY);
     const hy = groundY - H * 0.05;
@@ -339,16 +517,40 @@ export default function SkyHop() {
       drawPipe(ctx, px, botY, pw, groundY - botY, false);
     }
 
+    // feathers (float/bob)
+    for (const f of g.feathers) {
+      const fy = f.y * H + Math.sin(g.time * 3 + f.x * 10) * H * 0.012;
+      drawFeather(ctx, f.x * W, fy, BIRD_R * H * 0.95, g.time);
+    }
+
     // ground
-    ctx.fillStyle = "#c9a26b";
+    ctx.fillStyle = th.ground;
     ctx.fillRect(0, groundY, W, H - groundY);
-    ctx.fillStyle = "#8fd06a";
+    ctx.fillStyle = th.grass;
     ctx.fillRect(0, groundY, W, Math.max(6, H * 0.02));
     ctx.fillStyle = "rgba(0,0,0,0.06)";
     ctx.fillRect(0, groundY + Math.max(6, H * 0.02), W, 3);
 
     // bird
-    drawBird(ctx, BIRD_X * W, g.by * H, BIRD_R * H, g.rot);
+    const bxr = BIRD_X * W;
+    const byr = g.by * H;
+    const r = BIRD_R * H;
+    drawBird(ctx, bxr, byr, r, g.rot);
+
+    // shield bubble (active) or break flash
+    const sinceFlash = g.time - g.shieldFlash;
+    if (g.shield || sinceFlash < 0.5) {
+      const alpha = g.shield ? 0.55 + 0.25 * Math.sin(g.time * 8) : Math.max(0, 1 - sinceFlash / 0.5);
+      ctx.strokeStyle = `rgba(120,220,255,${alpha})`;
+      ctx.lineWidth = Math.max(2, r * 0.16);
+      ctx.beginPath();
+      ctx.arc(bxr, byr, r * 1.7, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.fillStyle = `rgba(150,230,255,${alpha * 0.18})`;
+      ctx.beginPath();
+      ctx.arc(bxr, byr, r * 1.7, 0, Math.PI * 2);
+      ctx.fill();
+    }
   };
 
   const drawCloud = (ctx, x, y, r) => {
@@ -506,6 +708,60 @@ export default function SkyHop() {
         </div>
       )}
 
+      {/* Shield indicator during play */}
+      {phase === "playing" && shielded && (
+        <div
+          data-testid="shield-indicator"
+          style={{
+            position: "absolute",
+            top: 16,
+            left: 16,
+            zIndex: 15,
+            display: "flex",
+            alignItems: "center",
+            gap: 6,
+            padding: "6px 12px",
+            borderRadius: 999,
+            background: "rgba(120,220,255,0.35)",
+            border: "2px solid rgba(255,255,255,0.85)",
+            color: "#0b3a4a",
+            fontWeight: 800,
+            fontSize: "clamp(11px,1.8vh,15px)",
+            pointerEvents: "none",
+          }}
+        >
+          <Shield size={16} /> Shield
+        </div>
+      )}
+
+      {/* Paused overlay */}
+      {phase === "paused" && (
+        <Overlay>
+          <h2
+            data-testid="paused-title"
+            style={{
+              margin: 0,
+              fontSize: "clamp(34px,7vh,64px)",
+              fontWeight: 900,
+              color: "#fff",
+              textShadow: "0 4px 0 #3b6ea5, 2px 2px 0 #2b3a4a",
+            }}
+          >
+            Paused
+          </h2>
+          <div style={{ height: 18 }} />
+          <PlayButton
+            testId="resume-button"
+            label="Resume"
+            onClick={(e) => {
+              e.stopPropagation();
+              resumeGame();
+            }}
+          />
+          <p style={hintStyle}>Tap or press Space to resume</p>
+        </Overlay>
+      )}
+
       {/* Start overlay */}
       {phase === "start" && (
         <Overlay>
@@ -548,6 +804,7 @@ export default function SkyHop() {
             Game Over
           </h2>
           <div style={panelStyle} data-testid="gameover-panel">
+            {medalFor(score) && <Medal medal={medalFor(score)} />}
             <ScoreRow label="Score" value={score} testId="final-score" />
             <div style={{ height: 10 }} />
             <ScoreRow label="Best" value={highScore} testId="high-score" gold />
@@ -696,6 +953,37 @@ function ScoreRow({ label, value, gold, testId }) {
         }}
       >
         {value}
+      </span>
+    </div>
+  );
+}
+
+function Medal({ medal }) {
+  return (
+    <div
+      data-testid="medal"
+      style={{ display: "flex", flexDirection: "column", alignItems: "center", marginBottom: 14 }}
+    >
+      <div
+        style={{
+          width: 72,
+          height: 72,
+          borderRadius: "50%",
+          background: `radial-gradient(circle at 35% 30%, ${medal.c1}, ${medal.c2})`,
+          border: `4px solid ${medal.ring}`,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          boxShadow: "0 4px 0 rgba(0,0,0,0.18)",
+        }}
+      >
+        <span style={{ fontSize: 30, color: medal.ring, fontWeight: 900, lineHeight: 1 }}>★</span>
+      </div>
+      <span
+        data-testid="medal-label"
+        style={{ marginTop: 6, fontWeight: 800, color: medal.c2, fontSize: "clamp(13px,2vh,17px)", letterSpacing: 1 }}
+      >
+        {medal.label}
       </span>
     </div>
   );
