@@ -467,6 +467,7 @@ export default function SkyHop() {
           position: "absolute",
           top: 14,
           right: 14,
+          zIndex: 30,
           width: 44,
           height: 44,
           borderRadius: 14,
