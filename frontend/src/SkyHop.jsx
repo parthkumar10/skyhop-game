@@ -371,7 +371,7 @@ export default function SkyHop() {
           const nx = last ? last.x + SPACING : 1.05;
           g.pipes.push({ x: nx, gap: randomGap(), scored: false });
           // rare floating feather in the open air between obstacles
-          if (!g.shield && g.feathers.length === 0 && Math.random() < 0.28) {
+          if (!g.shield && g.feathers.length === 0 && Math.random() < 0.14) {
             g.feathers.push({ x: nx - SPACING * 0.5, y: 0.22 + Math.random() * 0.42 });
           }
         }

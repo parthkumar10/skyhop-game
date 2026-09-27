@@ -30,6 +30,13 @@ Build an original browser game "SkyHop", inspired only by the general one-button
 - Responsive canvas (desktop/tablet/mobile), tap/click/Space input.
 - Tested by testing agent (frontend, 92%): all core flows pass. Fixed mute-toggle z-index over overlays.
 
+### Iteration 2 (2026-06-27)
+- **Medals**: Bronze (>=5) / Silver (>=15) / Gold (>=30) badge on Game Over screen.
+- **Day/Night themes**: sky shifts day (0-14) -> sunset (15-29) -> starry night (30+) as score climbs.
+- **Power-Up Feathers**: rare floating gold feather grants a one-hit shield (bubble + top-left indicator, brief invulnerability + bounce on absorb).
+- **Tab Pause**: auto-pauses on tab blur (visibilitychange); Resume button / Space / tap resumes without losing the run.
+- Testing agent frontend 100% pass, no bugs. Feather spawn rate tuned to rare (0.14).
+
 ## Backlog
 - P2: Pause when tab backgrounded (currently pipes advance while hidden; mitigated by dt clamp).
 - P2: try/catch around localStorage for private-mode browsers.
