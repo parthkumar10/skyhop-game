@@ -67,4 +67,4 @@ https://skyhopgame.pages.dev
 
 👨‍💻 Author
 Parth Kumar
-GitHub: https://github.com/parthkumar10
+https://github.com/parthkumar10
