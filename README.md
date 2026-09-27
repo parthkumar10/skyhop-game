@@ -14,6 +14,10 @@ https://skyhopgame.pages.dev
 - 🎨 Modern and clean UI
 - 🏆 Score-based gameplay
 - 🔄 Replayable game experience
+- 🛡️ Shield power-up providing one-hit protection
+- 🌅 Progressive environment changes from day to evening to night
+- 🥉🥈🥇 Bronze, Silver, and Gold medal achievements
+
 
 ## 🛠️ Tech Stack
 
